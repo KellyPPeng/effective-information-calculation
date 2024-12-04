@@ -1,16 +1,17 @@
 import torch
 import itertools
 
+# 计算信息熵
 def Entropia(a):
     b = torch.nonzero(a > 0).squeeze(1)
     return -torch.sum(a[b]*torch.log2(a[b]))
 
-
+# 基于状态概率矩阵计算有效信息
 def effective_information(G1):
     """
     Calculate EI value of transition probability matrix
-    :param G1: TPM matrix
-    :return: EI value
+    G1: TPM matrix
+    return the EI value
     """
     N = G1.shape[0]
     G = torch.zeros_like(G1)
@@ -35,43 +36,42 @@ def effective_information(G1):
     return Win_entropy - Wout_average
 
 
+# 状态空间的宏观TPM生成，以及有效信息计算
 def calc_tpm(micro_tpm, group):
     """
-    Calculate the effective information of TPM in micro and macro level, given the micro mechanism and
-    coarse-graining methods.
-
     Parameters
     ----------
-    micro_tpm: torch.tensor
-    group: the number of micro elements
+    micro_tpm: the transition probability matrix of system in micro level.
+    group: the coarse-graining methods (e.g., group = [(0, 1, 2), (3,)]: the micro states 0,1,2 are grouped into macro state 0, and the micro state 3 is grouped into macro state 1.
 
     Returns
     -------
-    the EI value of micro and macro TPM.
+    micro_ei, macro_ei: the EI value of micro, macro TPM.
+    macro_tpm: the transition probability matrix of system in macro level
 
-    Example
-    -------
-    micro_tpm = torch.tensor([[1/3, 1/3, 1/3, 0], [1/3, 1/3, 1/3, 0], [1/3, 1/3, 1/3, 0], [0, 0, 0, 1]])
-    group = [(0, 1, 2), (3,)]
-    micro_ei, macro_ei = calc_tpm(micro_tpm, group)
-
+    
     """
+    # the number of micro/macro states
     Nmi = micro_tpm.shape[0]
     Nma = len(group)
+    
+    # generate the mapping matrix from micro to macro
     mapping = torch.zeros((Nmi, Nma), dtype=torch.float)
-
     for j in range(Nma):
         for i in group[j]:
             mapping[i][j] = 1
+
+    # apply the mapping matrix to micro_tpm, and get the macro_tpm
     macro_tpm = mapping.t() @ micro_tpm @ mapping
 
+    # calculate the EI of micro_tpm, macro_tpm
     micro_ei = effective_information(micro_tpm)
     macro_ei = effective_information(macro_tpm)
 
-    return micro_ei, macro_ei
+    return micro_ei, macro_ei, macro_tpm
 
 
-
+# 变量空间的微观、宏观TPM生成，以及有效信息计算
 def calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group):
     """
     Calculate the effective information of boolean network in micro and macro level, given the micro mechanism and
@@ -91,21 +91,16 @@ def calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group):
 
     Returns
     -------
-    the EI value of micro and macro level.
-
-    Example
-    -------
-    micro_mech = {'00': [0.7, 0.3], '01': [0.7, 0.3], '10': [0.7, 0.3], '11': [0, 1]}
-    micro = 4
-    edges = [(2, 3), (2, 3), (0, 1), (0, 1)]
-    elem_group = [(0, 1), (2, 3)]
-    mech_group = {'00': '0', '01': '0', '10': '0', '11': '1'}
-    micro_ei, macro_ei = calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group)
+    micro_ei, macro_ei: the EI value of micro, macro level
+    S_m, S_M: transition probability matrix of micro, macro level
 
     """
+    # generate the statue list of boolean nodes, based on the number of micro elements
     Nmi = 2 ** micro
     node_list = list(itertools.product(['0', '1'], repeat=micro))
     S_m = torch.zeros((Nmi, Nmi), dtype=torch.float)
+
+    # calculate the transition probability matrix of micro level
     for i, pre in enumerate(node_list):
         for j, tmp in enumerate(node_list):
             tr_pr = 1
@@ -115,6 +110,7 @@ def calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group):
                 tr_pr *= micro_mech[srce1 + srce2][int(tmp[z])]
             S_m[i][j] = tr_pr
 
+    # calculate the grouping matrix from micro to macro level, based on the elem_group and mech_group.
     unique = set(mech_group.values())
     Nma = len(unique) ** len(elem_group)
     group = torch.zeros((Nmi, Nma), dtype=torch.float)
@@ -125,10 +121,12 @@ def calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group):
             Sma += mech_group[Smi]
         group[i, int(Sma, base=len(unique))] = 1
 
+    # calculate the transition probability matrix of macro level
     S_M = group.t() @ S_m @ group
     S_M = S_M / torch.sum(S_M, axis=1).unsqueeze(1)
 
+    # calculate the EI of micro and macro level
     micro_ei = effective_information(S_m)
     macro_ei = effective_information(S_M)
 
-    return micro_ei, macro_ei
+    return micro_ei, macro_ei, S_m, S_M
