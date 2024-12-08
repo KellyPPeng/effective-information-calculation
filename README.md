@@ -1,5 +1,6 @@
 # effective-information-calculation
-## 基于状态空间计算有效信息：calc_tpm
+## 给定粗粒化方案
+### 基于状态空间计算有效信息：calc_tpm
 给定微观的状态转移矩阵（micro_tpm），即每个状态下一时刻转向所有状态的概率。以4状态的微观系统为例:
 
     from ce import *
@@ -15,7 +16,7 @@
     CE = macro_ei - micro_ei
 
     
-## 基于变量空间计算有效信息：calc_bn_ei
+### 基于变量空间计算有效信息：calc_bn_ei
 给定微观布尔元素的个数，以4为例：
 
     from ce import *
@@ -39,5 +40,37 @@
     
 最后，使用calc_bn_ei得到微观、宏观的TPM，以及各自的有效信息值：
 
-    micro_ei, macro_ei = calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group)
+    micro_ei, macro_ei, S_m, S_M = calc_bn_ei(micro_mech, micro, edges, elem_group, mech_group)
     CE = macro_ei - micro_ei
+
+
+## 不给定粗粒化方案
+### 贪婪算法
+以上面基于变量空间的tpm为例，输入S_m。由于贪婪算法稳定性一般，易陷入局部最优解，所以采用多次学习的结果，取其中最大的归一化CE值对应的粗粒化方案。
+
+    G = np.array(S_m)
+    G = check_network(G)
+    max_eff_gain = 0
+    for i in range(100):
+        CE = causal_emergence(G)
+        Nmacro = CE['G_macro'].number_of_nodes()
+        eff_gain = CE['EI_macro']/np.log2(Nmacro) - CE['EI_micro']/np.log2(N)
+
+        # 更新最大 eff_gain
+        if eff_gain > max_eff_gain:
+            max_eff_gain = eff_gain
+            best_CE = CE
+    G_macro = CE['G_macro']
+    EI_macro = CE['EI_macro']
+    mapping = CE['mapping']
+            
+
+### 谱分解算法
+    G = np.array(S_m)
+    G = check_network(G)
+    CE = causal_emergence_spectral(G)
+    
+贪婪算法的具体实现路径可参考：https://wiki.swarma.org/index.php/%E5%A4%8D%E6%9D%82%E7%BD%91%E7%BB%9C%E4%B8%AD%E7%9A%84%E5%9B%A0%E6%9E%9C%E6%B6%8C%E7%8E%B0
+贪婪算法、谱分解代码（ce_net.py, ei_net.py）修改自：https://github.com/jkbren/einet
+
+    
