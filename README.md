@@ -47,8 +47,9 @@
     max_eff_gain = 0
     for i in range(100):
         CE = causal_emergence(G)
+        Nmicro = CE['G_micro'].number_of_nodes()
         Nmacro = CE['G_macro'].number_of_nodes()
-        eff_gain = CE['EI_macro']/np.log2(Nmacro) - CE['EI_micro']/np.log2(N)
+        eff_gain = CE['EI_macro']/np.log2(Nmacro) - CE['EI_micro']/np.log2(Nmicro)
 
         # 更新最大 eff_gain
         if eff_gain > max_eff_gain:
