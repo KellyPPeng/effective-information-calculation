@@ -71,6 +71,7 @@
     CE = causal_emergence_spectral(G)
     
 贪婪算法的具体实现路径可参考：https://wiki.swarma.org/index.php/%E5%A4%8D%E6%9D%82%E7%BD%91%E7%BB%9C%E4%B8%AD%E7%9A%84%E5%9B%A0%E6%9E%9C%E6%B6%8C%E7%8E%B0
+
 贪婪算法、谱分解代码（ce_net.py, ei_net.py）修改自：https://github.com/jkbren/einet
 
     
