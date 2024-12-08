@@ -51,7 +51,6 @@
         Nmacro = CE['G_macro'].number_of_nodes()
         eff_gain = CE['EI_macro']/np.log2(Nmacro) - CE['EI_micro']/np.log2(Nmicro)
 
-        # 更新最大 eff_gain
         if eff_gain > max_eff_gain:
             max_eff_gain = eff_gain
             best_CE = CE
